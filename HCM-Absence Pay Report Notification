@@ -1,0 +1,148 @@
+=================================== Query ==========================================================
+SELECT
+    per.person_id,
+    per.person_number,
+    ppnf.display_name,
+    per_absence_entry_id,
+    abs.absence_type_id,
+    abs.name absence_type,
+    TO_CHAR(apae.start_datetime, 'DD-MON-YYYY', 'NLS_DATE_LANGUAGE = AMERICAN') start_date,
+    TO_CHAR(apae.end_datetime, 'DD-MON-YYYY', 'NLS_DATE_LANGUAGE = AMERICAN') end_date,
+    duration,
+    apae.attribute1,
+    apae.attribute2,
+    peas.email_address,
+    (
+        SELECT
+            peas1.email_address
+        FROM
+            per_all_people_f               peo1,
+            per_assignment_supervisors_f   pasf,
+            per_email_addresses            peas1
+        WHERE
+            1 = 1
+            AND peo1.person_id = pasf.manager_id
+            AND pasf.person_id = per.person_id
+            AND peo1.primary_email_id = peas1.email_address_id
+            AND trunc(SYSDATE) BETWEEN trunc(peas1.date_from) AND nvl(peas1.date_to, trunc(SYSDATE))
+            AND trunc(SYSDATE) BETWEEN trunc(peo1.effective_start_date) AND trunc(peo1.effective_end_date)
+            AND trunc(SYSDATE) BETWEEN trunc(pasf.effective_start_date) AND trunc(pasf.effective_end_date)
+    ) mgr_email
+FROM
+    anc_per_abs_entries      apae,
+    per_periods_of_service   pps,
+    per_all_people_f         per,
+    per_person_names_f       ppnf,
+    anc_absence_types_vl     abs,
+    per_email_addresses      peas
+WHERE
+    apae.period_of_service_id = pps.period_of_service_id
+    AND apae.absence_type_id = abs.absence_type_id
+    AND pps.person_id = per.person_id
+--and per.person_number = '100746'
+    AND pps.primary_flag = 'Y'
+    AND ppnf.person_id = per.person_id
+    AND ppnf.person_id = apae.person_id
+    AND ppnf.name_type = 'GLOBAL'
+    AND apae.absence_status_cd IN (
+        'APPROVED',
+        'COMPLETED',
+        'SCHEDULED'
+    )
+    AND trunc(SYSDATE) BETWEEN trunc(ppnf.effective_start_date) AND trunc(ppnf.effective_end_date)
+    AND per.primary_email_id = peas.email_address_id
+    AND trunc(SYSDATE) BETWEEN trunc(peas.date_from) AND nvl(peas.date_to, trunc(SYSDATE))
+    AND apae.attribute2 = 'Yes'
+    AND apae.last_update_date > ( SYSDATE - 1 )
+    AND ( ( per.person_number IN (
+        :p_person
+    ) )
+          OR ( least(:p_person) IS NULL ) )
+ORDER BY
+    per_absence_entry_id DESC
+    
+    
+    ========================================== Bursting Query ===================================
+    SELECT DISTINCT
+    person_number   AS "KEY",
+    'Rpt' AS template,
+    'RTF' template_format,
+    'en-US' locale,
+    'PDF' output_format,
+    person_number || '_Salary Advance Required' output_name,
+    'EMAIL' del_channel,
+    'rajesh.nair@ali-sons.com' AS parameter1,
+    email_address   AS parameter2,
+    'evjm.fa.sender@workflow.mail.em2.cloud.oracle.com' AS parameter3,
+    'Salary Advance is required Notification' parameter4,
+    'Hi,
+
+Please find the attached file.This is to inform that, One of the Subordinate is requested for Salary Advance
+
+Regards,
+
+HR Team'
+    parameter5,
+    'true' parameter6
+FROM
+    (
+        SELECT
+            per.person_id,
+            per.person_number,
+            ppnf.display_name,
+            per_absence_entry_id,
+            abs.absence_type_id,
+            abs.name absence_type,
+            TO_CHAR(apae.start_datetime, 'DD-MON-YYYY', 'NLS_DATE_LANGUAGE = AMERICAN') start_date,
+            TO_CHAR(apae.end_datetime, 'DD-MON-YYYY', 'NLS_DATE_LANGUAGE = AMERICAN') end_date,
+            duration,
+            apae.attribute1,
+            apae.attribute2,
+            peas.email_address,
+            (
+                SELECT
+                    peas1.email_address
+                FROM
+                    per_all_people_f               peo1,
+                    per_assignment_supervisors_f   pasf,
+                    per_email_addresses            peas1
+                WHERE
+                    1 = 1
+                    AND peo1.person_id = pasf.manager_id
+                    AND pasf.person_id = per.person_id
+                    AND peo1.primary_email_id = peas1.email_address_id
+                    AND trunc(SYSDATE) BETWEEN trunc(peas1.date_from) AND nvl(peas1.date_to, trunc(SYSDATE))
+                    AND trunc(SYSDATE) BETWEEN trunc(peo1.effective_start_date) AND trunc(peo1.effective_end_date)
+                    AND trunc(SYSDATE) BETWEEN trunc(pasf.effective_start_date) AND trunc(pasf.effective_end_date)
+            ) mgr_email
+        FROM
+            anc_per_abs_entries      apae,
+            per_periods_of_service   pps,
+            per_all_people_f         per,
+            per_person_names_f       ppnf,
+            anc_absence_types_vl     abs,
+            per_email_addresses      peas
+        WHERE
+            apae.period_of_service_id = pps.period_of_service_id
+            AND apae.absence_type_id = abs.absence_type_id
+            AND pps.person_id = per.person_id
+--and per.person_number = '100746'
+            AND pps.primary_flag = 'Y'
+            AND ppnf.person_id = per.person_id
+            AND ppnf.person_id = apae.person_id
+            AND ppnf.name_type = 'GLOBAL'
+            AND apae.absence_status_cd IN (
+                'APPROVED',
+                'COMPLETED',
+                'SCHEDULED'
+            )
+            AND trunc(SYSDATE) BETWEEN trunc(ppnf.effective_start_date) AND trunc(ppnf.effective_end_date)
+            AND per.primary_email_id = peas.email_address_id
+            AND trunc(SYSDATE) BETWEEN trunc(peas.date_from) AND nvl(peas.date_to, trunc(SYSDATE))
+            AND apae.attribute2 = 'Yes'
+            AND apae.last_update_date > ( SYSDATE - 1 )
+            AND ( ( per.person_number IN (
+                :p_person
+            ) )
+                  OR ( least(:p_person) IS NULL ) )
+    ) qry
