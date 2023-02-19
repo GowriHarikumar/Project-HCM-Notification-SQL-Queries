@@ -1,0 +1,182 @@
+(
+  SELECT 
+    * 
+  FROM 
+    (
+      SELECT 
+        DISTINCT papf.person_number person_number, 
+        dep.name department, 
+        hou.name bu, 
+        paam.assignment_number, 
+        TO_CHAR(
+          paam.PROJECTED_START_DATE, 'DD/MM/YYYY', 
+          'NLS_DATE_language=American'
+        ) AS join_date2, 
+        paam.PROJECTED_START_DATE, 
+        paam.effective_start_date, 
+        (
+          SELECT 
+            name 
+          FROM 
+            hr_all_positions 
+          WHERE 
+            assignment_id = paam.assignment_id 
+            AND paam.position_id = position_id (+) 
+            AND active_status (+) = 'A'
+        ) designation, 
+        pjt.name job, 
+        (
+          SELECT 
+            pn.display_name name 
+          FROM 
+            per_asg_responsibilities aor, 
+            per_person_names_f pn, 
+            per_all_assignments_m asg, 
+            per_all_people_f papf1 
+          WHERE 
+            trunc(SYSDATE) BETWEEN pn.effective_start_date 
+            AND pn.effective_end_date 
+            AND pn.name_type = 'GLOBAL' 
+            AND aor.person_id = pn.person_id -- and papf1.person_id = paam.person_id
+            AND aor.person_id = papf1.person_id 
+            AND aor.person_id = asg.person_id 
+            AND aor.responsibility_type in ('HR_REP', 'HR_COORDINATOR') ---   AND asg.ASSIGNMENT_TYPE IN ('P')
+            AND trunc(SYSDATE) BETWEEN asg.effective_start_date 
+            AND asg.effective_end_date 
+            AND ROWNUM < 2
+        ) hr_name, 
+        (
+          SELECT 
+            pe.email_address 
+          FROM 
+            per_asg_responsibilities aor, 
+            per_person_names_f pn, 
+            per_email_addresses pe, 
+            per_all_assignments_m asg, 
+            per_all_people_f papf1 
+          WHERE 
+            aor.person_id = asg.person_id (+) 
+            AND pe.person_id (+) = papf1.person_id --- and papf1.person_id = paam.person_id
+            AND aor.person_id = pn.person_id (+) 
+            AND aor.person_id (+) = papf1.person_id 
+            AND trunc(SYSDATE) BETWEEN pn.effective_start_date 
+            AND pn.effective_end_date 
+            AND pn.name_type = 'GLOBAL' ---  AND asg.ASSIGNMENT_TYPE IN ('P')
+            AND aor.responsibility_type in ('HR_REP', 'HR_COORDINATOR') 
+            AND trunc(SYSDATE) BETWEEN asg.effective_start_date 
+            AND asg.effective_end_date 
+            AND ROWNUM < 2
+        ) hr_email, 
+        (
+          SELECT 
+            pe.email_address 
+          FROM 
+            per_asg_responsibilities aor, 
+            per_person_names_f pn, 
+            per_email_addresses pe, 
+            per_all_assignments_m asg, 
+            per_all_people_f papf1 
+          WHERE 
+            papf1.person_id = asg.person_id (+) 
+            AND pe.person_id = aor.person_id(+) 
+            AND aor.person_id = pn.person_id (+) ---and papf1.person_id = paam.person_id
+            AND aor.person_id (+) = papf1.person_id 
+            AND trunc(SYSDATE) BETWEEN pn.effective_start_date 
+            AND pn.effective_end_date 
+            AND pn.name_type = 'GLOBAL' --AND asg.ASSIGNMENT_TYPE IN ('P')
+            AND aor.responsibility_type = 'ORA_RECRUITING' 
+            AND trunc(SYSDATE) BETWEEN asg.effective_start_date 
+            AND asg.effective_end_date 
+            AND ROWNUM < 2
+        ) recruiter_email, 
+        ppnf.name_type, 
+        (
+          SELECT 
+            full_name 
+          FROM 
+            per_person_names_f_v m1, 
+            per_assignment_supervisors_f_v pa 
+          WHERE 
+            1 = 1 
+            AND m1.person_id = pa.manager_id 
+            AND pa.person_id = ppnf.person_id 
+            AND pa.assignment_id = paam.assignment_id 
+            AND trunc(SYSDATE) BETWEEN m1.effective_start_date 
+            AND m1.effective_end_date 
+            AND ROWNUM = 1
+        ) AS "MANAGER_NAME", 
+        (
+          select 
+            pea.email_address 
+          from 
+            per_email_addresses_v pea 
+          where 
+            person_id in(
+              (
+                SELECT 
+                  m1.person_id 
+                FROM 
+                  per_person_names_f_v m1, 
+                  per_assignment_supervisors_f_v pa 
+                WHERE 
+                  1 = 1 
+                  AND m1.person_id = pa.manager_id 
+                  AND pa.person_id = ppnf.person_id 
+                  AND pa.assignment_id = paam.assignment_id 
+                  AND trunc(SYSDATE) BETWEEN m1.effective_start_date 
+                  AND m1.effective_end_date 
+                  AND ROWNUM = 1
+              )
+            )
+        ) "MANAGER_EMAIL", 
+        ppnf.first_name || ' ' || ppnf.last_name employee ---PAAM.ASSIGNMENT_NUMBER
+      FROM 
+        per_all_people_f papf, 
+        hr_organization_units_f_tl hou, 
+        hr_all_organization_units dep, 
+        per_all_assignments_m paam, 
+        per_person_names_f ppnf, 
+        per_jobs_f pjf, 
+        per_jobs_f_tl pjt 
+      WHERE 
+        papf.person_id = paam.person_id 
+        AND papf.person_id = ppnf.person_id 
+        AND paam.business_unit_id = hou.organization_id 
+        AND paam.organization_id = dep.organization_id(+) 
+        AND paam.job_id = pjf.job_id(+) 
+        AND pjf.job_id = pjt.job_id(+) 
+        AND papf.PERSON_NUMBER not IN(
+          SELECT 
+            "PER_ALL_PEOPLE_F"."PERSON_NUMBER" 
+          FROM 
+            "PER_PERSON_TYPES_VL" "PER_PERSON_TYPES_VL", 
+            "PER_PERSON_NAMES_F" "PER_PERSON_NAMES_F", 
+            "PER_ALL_PEOPLE_F" "PER_ALL_PEOPLE_F", 
+            "PER_ALL_ASSIGNMENTS_M" "PER_ALL_ASSIGNMENTS_M" 
+          WHERE 
+            "PER_ALL_ASSIGNMENTS_M"."PERSON_TYPE_ID" = "PER_PERSON_TYPES_VL"."PERSON_TYPE_ID" 
+            AND "PER_PERSON_NAMES_F"."PERSON_ID" = "PER_ALL_ASSIGNMENTS_M"."PERSON_ID" 
+            AND "PER_ALL_ASSIGNMENTS_M"."PERSON_ID" = "PER_ALL_PEOPLE_F"."PERSON_ID" --AND "PER_ALL_ASSIGNMENTS_M" ."ASSIGNMENT_NUMBER"='P160011'
+            ---AND "PER_ALL_PEOPLE_F"."PERSON_NUMBER" ='160016'
+            and "PER_ALL_ASSIGNMENTS_M"."ASSIGNMENT_TYPE" = 'E' 
+            AND "PER_ALL_ASSIGNMENTS_M"."ASSIGNMENT_NUMBER" LIKE '%E%' ---AND trunc(SYSDATE) BETWEEN "PER_ALL_ASSIGNMENTS_M"."EFFECTIVE_START_DATE" and "PER_ALL_ASSIGNMENTS_M"."EFFECTIVE_END_DATE"
+            ) 
+        AND paam.assignment_type = 'P' 
+        AND paam.ASSIGNMENT_NUMBER LIKE '%P%' 
+        AND ppnf.name_type = 'GLOBAL' ---AND PAPF.PERSON_NUMBER ='180568'
+        ) a 
+  WHERE 
+    1 = 1 ---AND TO_DATE(add_months(join_date2, 5) -12) = TO_DATE(SYSDATE)
+    and TO_DATE(
+      (PROJECTED_START_DATE)
+    ) -4 = TO_DATE(SYSDATE) 
+    OR TO_DATE(
+      (PROJECTED_START_DATE)
+    ) -3 = TO_DATE(SYSDATE) 
+    OR TO_DATE(
+      (PROJECTED_START_DATE)
+    ) -2 = TO_DATE(SYSDATE) 
+    OR TO_DATE(
+      (PROJECTED_START_DATE)
+    ) -1 = TO_DATE(SYSDATE)
+)
