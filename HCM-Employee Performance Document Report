@@ -1,0 +1,130 @@
+SELECT 
+  Employee_Name, 
+  Employee_Number, 
+  Employee_Email_Address, 
+  Manager_Name, 
+  Manager_Email_Address, 
+  Manager_Number, 
+  Performance_Document, 
+  Task_Completion, 
+  Current_Task 
+FROM 
+  (
+    Select 
+      Distinct PPN.FULL_NAME Employee_Name, 
+      PAP.PERSON_NUMBER Employee_Number, 
+      (
+        SELECT 
+          PEA.email_address 
+        FROM 
+          per_email_addresses_v PEA 
+        WHERE 
+          1 = 1 
+          AND PEA.person_id = PPN.PERSON_ID 
+          AND trunc(SYSDATE) BETWEEN PEA.date_from 
+          AND nvl(PEA.date_to, SYSDATE + 1) --AND PEA.email_address IS NOT NULL
+          AND PEA.EMAIL_TYPE = 'W1' 
+          AND ROWNUM = 1
+      ) Employee_Email_Address, 
+      (
+        SELECT 
+          PPN1.full_name 
+        FROM 
+          PER_PERSON_NAMES_F_V PPN1, 
+          per_assignment_supervisors_f_v PAS 
+        WHERE 
+          1 = 1 
+          AND PPN1.person_id = PAS.manager_id 
+          AND PAS.person_id = PPN.PERSON_ID 
+          AND trunc(SYSDATE) BETWEEN trunc(PPN1.EFFECTIVE_START_DATE) 
+          AND trunc(PPN1.EFFECTIVE_END_DATE) 
+          AND trunc(SYSDATE) BETWEEN trunc(PAS.EFFECTIVE_START_DATE) 
+          AND trunc(PAS.EFFECTIVE_END_DATE) 
+          AND PAS.MANAGER_TYPE = 'LINE_MANAGER' 
+          AND ROWNUM = 1
+      ) Manager_Name, 
+      (
+        SELECT 
+          PPF.person_number 
+        FROM 
+          per_all_people_f PPF, 
+          per_person_names_f_v PPN2, 
+          per_assignment_supervisors_f_v PAS1 
+        WHERE 
+          1 = 1 
+          AND PPF.person_id = PPN2.person_id 
+          AND trunc(SYSDATE) BETWEEN trunc(PPN2.EFFECTIVE_START_DATE) 
+          AND trunc(PPN2.EFFECTIVE_END_DATE) 
+          AND PPN2.person_id = PAS1.manager_id 
+          AND PAS1.manager_id = HE.manager_id 
+          AND PAS1.MANAGER_TYPE = 'LINE_MANAGER' 
+          AND trunc(SYSDATE) BETWEEN trunc(PAS1.EFFECTIVE_START_DATE) 
+          AND trunc(PAS1.EFFECTIVE_END_DATE) 
+          AND trunc(SYSDATE) BETWEEN trunc(PPF.EFFECTIVE_START_DATE) 
+          AND trunc(PPF.EFFECTIVE_END_DATE) 
+          AND ROWNUM = 1
+      ) manager_Number, 
+      (
+        SELECT 
+          PEA1.email_address 
+        FROM 
+          per_email_addresses_v PEA1 
+        WHERE 
+          1 = 1 
+          AND HE.MANAGER_ID = PEA1.PERSON_ID 
+          AND trunc(SYSDATE) BETWEEN PEA1.date_from 
+          AND nvl(PEA1.date_to, SYSDATE + 1) 
+          AND PEA1.EMAIL_TYPE = 'W1'
+      ) Manager_Email_Address, 
+      -- PEA1.email_address Manager_Email_Address,
+      HTP.CUSTOMARY_NAME Performance_Document, 
+      HE.STATUS_CODE Task_Completion, 
+      HES.STEP_CODE Current_Task -- he.MANAGER_ID,
+    from 
+      PER_PERSON_NAMES_F_V PPN, 
+      PER_ALL_PEOPLE_F PAP, 
+      PER_ALL_ASSIGNMENTS_M PAAM, 
+      HRA_EVALUATIONS HE, 
+      HRA_TMPL_PERIODS_VL HTP, 
+      -- per_email_addresses_v PEA1,
+      HRA_EVAL_STEPS HES 
+    where 
+      1 = 1 
+      and PPN.PERSON_ID = PAP.PERSON_ID -- AND PPN.EFFECTIVE_START_DATE = (SELECT MAX(PP.effective_start_date) 
+      -- FROM PER_PERSON_NAMES_F_V PP 
+      -- WHERE 1 = 1
+      -- AND PP.person_id = PPN.PERSON_ID)
+      --and PAP.PERSON_NUMBER = '100047'
+      -- and PAP.PERSON_NUMBER = 100341
+      --and PAP.PERSON_NUMBER = 100251
+      -- and PAP.PERSON_NUMBER = 180547
+      --and PAP.PERSON_NUMBER = 102911
+      --and PAP.PERSON_NUMBER IN ( '100047','100341','102911','100251')
+      and PPN.NAME_TYPE = 'GLOBAL' 
+      and trunc(SYSDATE) BETWEEN trunc(PPN.EFFECTIVE_START_DATE) 
+      AND trunc(PPN.EFFECTIVE_END_DATE) 
+      and trunc(SYSDATE) BETWEEN trunc(PAP.EFFECTIVE_START_DATE) 
+      AND trunc(PAP.EFFECTIVE_END_DATE) 
+      and trunc(SYSDATE) BETWEEN trunc(HE.START_DATE) 
+      AND trunc(HE.END_DATE) 
+      and trunc(SYSDATE) BETWEEN trunc(PAAM.EFFECTIVE_START_DATE) 
+      AND trunc(PAAM.EFFECTIVE_END_DATE) 
+      and PAP.PERSON_ID = PAAM.PERSON_ID 
+      and PAAM.ASSIGNMENT_TYPE IN ('E', 'C') -- AND  PAAM.ACTION_CODE='HIRE' 
+      AND HE.WORKER_ID = PPN.PERSON_ID -- AND PEA1.EMAIL_TYPE = 'W1'
+      -- AND HES.STEP_CODE IN('WSEVAL','MGREVAL')
+      AND HES.STEP_CODE = 'WSEVAL' 
+      AND HE.TMPL_PERIOD_ID = HTP.TMPL_PERIOD_ID -- AND HE.MANAGER_ID = PEA1.PERSON_ID
+      AND HE.STATUS_CODE = 'INPROG' 
+      AND HE.EVALUATION_ID = HES.EVALUATION_ID 
+      AND PAAM.ASS_ATTRIBUTE33 = 'Employee' -- AND HVS.EVALUATION_ID = HE.EVALUATION_ID
+      -- AND HVS.SECTION_TYPE_CODE = 'REG'
+      -- AND HTP.CUSTOMARY_NAME = 'AS Year End 2022'
+      -- AND HTP.CUSTOMARY_NAME LIKE '%AS Year End 2022%'
+      -- AND HTP.CUSTOMARY_NAME LIKE '%AS Mid Year 2022%'
+      -- AND HTP.CUSTOMARY_NAME LIKE '%AS Year End White Collar%'
+      -- AND HTP.CUSTOMARY_NAME LIKE '%AS Year End 2022%'
+      ) 
+WHERE 
+  1 = 1 
+  AND Employee_Email_Address IS NOT NULL
