@@ -1,0 +1,196 @@
+select 
+  distinct A.FIRST_NAME || ' ' || A.LAST_NAME EMPLOYEE, 
+  A.MANAGER_NAME, 
+  A.EMAIL_ADDRESS, 
+  A.Person_number, 
+  hg.goal_name, 
+  TO_CHAR(
+    hg.target_completion_date, 'DD-MM-YYYY'
+  ) TARGET_dATE, 
+  TO_CHAR(hg.start_date, 'DD-MM-YYYY') Start_Date, 
+  hg.status_code, 
+  hg.percent_complete_code 
+from 
+  (
+    SELECT 
+      (
+        SELECT 
+          ppf.person_number 
+        FROM 
+          per_all_people_f ppf 
+        WHERE 
+          1 = 1 
+          AND ppf.person_id = "PER_PERSON_NAMES_F_V"."PERSON_ID" 
+          AND trunc(SYSDATE) BETWEEN ppf."EFFECTIVE_START_DATE" 
+          AND ppf."EFFECTIVE_END_DATE" 
+          AND ROWNUM = 1
+      ) AS "PERSON_NUMBER", 
+      TO_CHAR(
+        "PER_PERSON_NAMES_F_V"."PERSON_ID"
+      ) AS "PERSON_ID", 
+      "PER_PERSON_NAMES_F_V"."FIRST_NAME" AS "FIRST_NAME", 
+      "PER_PERSON_NAMES_F_V"."LAST_NAME" AS "LAST_NAME", 
+      "PER_PERSON_NAMES_F_V"."DISPLAY_NAME" AS "DISPLAY_NAME", 
+      (
+        SELECT 
+          ppf.person_number 
+        FROM 
+          per_all_people_f ppf, 
+          per_person_names_f_v m1, 
+          per_assignment_supervisors_f_v pa 
+        WHERE 
+          1 = 1 
+          AND ppf.person_id = m1.person_id 
+          AND trunc(SYSDATE) BETWEEN ppf."EFFECTIVE_START_DATE" 
+          AND ppf."EFFECTIVE_END_DATE" 
+          AND m1.person_id = pa.manager_id 
+          AND pa.person_id = "PER_PERSON_NAMES_F_V"."PERSON_ID" 
+          AND pa.assignment_id = "PER_ALL_ASSIGNMENTS_M"."ASSIGNMENT_ID" 
+          AND trunc(SYSDATE) BETWEEN m1."EFFECTIVE_START_DATE" 
+          AND m1."EFFECTIVE_END_DATE" 
+          AND ROWNUM = 1
+      ) AS "MANAGER_ID", 
+      (
+        SELECT 
+          full_name 
+        FROM 
+          per_person_names_f_v m1, 
+          per_assignment_supervisors_f_v pa 
+        WHERE 
+          1 = 1 
+          AND m1.person_id = pa.manager_id 
+          AND pa.person_id = "PER_PERSON_NAMES_F_V"."PERSON_ID" 
+          AND pa.assignment_id = "PER_ALL_ASSIGNMENTS_M"."ASSIGNMENT_ID" 
+          AND trunc(SYSDATE) BETWEEN m1."EFFECTIVE_START_DATE" 
+          AND m1."EFFECTIVE_END_DATE" 
+          AND ROWNUM = 1
+      ) AS "MANAGER_NAME", 
+      "PER_PERSON_NAMES_F_V"."CREATED_BY" AS "CREATED_BY", 
+      "PER_PERSON_NAMES_F_V"."CREATION_DATE" AS "CREATION_DATE", 
+      "PER_USERS"."USERNAME" AS "USERNAME", 
+      (
+        SELECT 
+          email_address 
+        FROM 
+          per_email_addresses_v pea 
+        WHERE 
+          1 = 1 
+          AND pea.person_id = "PER_PERSON_NAMES_F_V"."PERSON_ID" --and PEA.EMAIL_ADDRESS_ID="PER_PERSON_NAMES_F_V".PRIMARY_ADDRESS_ID
+          AND trunc(SYSDATE) BETWEEN date_from 
+          AND nvl(date_to, SYSDATE + 1) 
+          AND ROWNUM = 1
+      ) AS "EMAIL_ADDRESS", 
+      "PER_PERSON_NAMES_F_V"."EFFECTIVE_START_DATE" AS "EFFECTIVE_START_DATE", 
+      "HR_ORGANIZATION_UNITS_1"."NAME" AS "BUSINESS_UNIT", 
+      TO_CHAR(
+        "PER_ALL_ASSIGNMENTS_M"."ASSIGNMENT_ID"
+      ) AS "ASSIGNMENT_ID", 
+      TO_CHAR(
+        "PER_ALL_ASSIGNMENTS_M"."ASSIGNMENT_NUMBER"
+      ) AS "ASSIGNMENT_NUMBER", 
+      "PER_ALL_ASSIGNMENTS_M"."EFFECTIVE_START_DATE" AS "ASSIG_EFFECTIVE_START_DATE", 
+      "PER_ALL_ASSIGNMENTS_M"."ACTION_CODE" AS "ACTION_CODE", 
+      "HR_ORGANIZATION_UNITS_2"."NAME" AS "LEGAL_ENTITY_CODE", 
+      "PER_JOBS_F_VL"."JOB_CODE" AS "JOB_CODE", 
+      "PER_JOBS_F_VL"."NAME" AS "JOB_NAME", 
+      "HR_ORGANIZATION_UNITS"."NAME" AS "DEPARTMENT_NAME", 
+      "PER_ALL_ASSIGNMENTS_M"."ASSIGNMENT_STATUS_TYPE" AS "ASSIGNMENT_STATUS_TYPE", 
+      "PER_ALL_ASSIGNMENTS_M"."MANAGER_FLAG" AS "MANAGER_FLAG", 
+      "PER_PERIODS_OF_SERVICE_V"."ACTUAL_TERMINATION_DATE" AS "ACTUAL_TERMINATION_DATE", 
+      "PER_PERIODS_OF_SERVICE_V"."ACCEPTED_TERMINATION_DATE" AS "ACCEPTED_TERMINATION_DATE", 
+      (
+        SELECT 
+          assignment_number 
+        FROM 
+          per_all_assignments_f aaf 
+        WHERE 
+          1 = 1 
+          AND aaf.assignment_id = "PER_ALL_ASSIGNMENTS_M".work_terms_assignment_id 
+          AND ROWNUM = 1
+      ) AS "WK_TERM_ASSIGNMENT_NUM", 
+      "HR_ORGANIZATION_UNITS"."ORGANIZATION_ID" AS "DEPARTMENT_ID" 
+    FROM 
+      "HR_ORGANIZATION_UNITS" "HR_ORGANIZATION_UNITS_2", 
+      "HR_ORGANIZATION_UNITS" "HR_ORGANIZATION_UNITS_1", 
+      "HR_ORGANIZATION_UNITS" "HR_ORGANIZATION_UNITS", 
+      "PER_PERSON_TYPES_VL" "PER_PERSON_TYPES_VL", 
+      "PER_ASSIGNMENT_STATUS_TYPES_VL" "PER_ASSIGNMENT_STATUS_TYPES_VL", 
+      "PER_PERSON_ADDRESSES_V" "PER_PERSON_ADDRESSES_V", 
+      "PER_GRADES_F_VL" "PER_GRADES_F_VL", 
+      "PER_JOBS_F_VL" "PER_JOBS_F_VL", 
+      "HR_ALL_POSITIONS_F_VL" "HR_ALL_POSITIONS_F_VL", 
+      "PER_LOCATION_DETAILS_F_VL" "PER_LOCATION_DETAILS_F_VL", 
+      "PER_ALL_ASSIGNMENTS_M" "PER_ALL_ASSIGNMENTS_M", 
+      "PER_USERS" "PER_USERS", 
+      "PER_PERSON_NAMES_F_V" "PER_PERSON_NAMES_F_V", 
+      "PER_PERIODS_OF_SERVICE_V" "PER_PERIODS_OF_SERVICE_V" 
+    WHERE 
+      1 = 1 
+      AND "PER_PERSON_NAMES_F_V"."PERSON_ID" = "PER_USERS"."PERSON_ID" (+) 
+      AND "PER_PERSON_NAMES_F_V"."EFFECTIVE_START_DATE" = (
+        SELECT 
+          MAX(p.effective_start_date) 
+        FROM 
+          per_person_names_f_v p 
+        WHERE 
+          1 = 1 
+          AND p.person_id = "PER_PERSON_NAMES_F_V"."PERSON_ID"
+      ) 
+      AND "PER_PERSON_NAMES_F_V"."PERSON_ID" = "PER_ALL_ASSIGNMENTS_M"."PERSON_ID" 
+      AND "PER_ALL_ASSIGNMENTS_M"."PERSON_ID" = "PER_PERIODS_OF_SERVICE_V"."PERSON_ID" (+) 
+      AND "PER_ALL_ASSIGNMENTS_M"."PERIOD_OF_SERVICE_ID" = "PER_PERIODS_OF_SERVICE_V"."PERIOD_OF_SERVICE_ID" (+) 
+      AND "PER_ALL_ASSIGNMENTS_M"."ASSIGNMENT_TYPE" IN ('E', 'C') 
+      AND "PER_ALL_ASSIGNMENTS_M"."LOCATION_ID" = "PER_LOCATION_DETAILS_F_VL"."LOCATION_ID" (+) 
+      AND "PER_ALL_ASSIGNMENTS_M"."POSITION_ID" = "HR_ALL_POSITIONS_F_VL"."POSITION_ID" (+) 
+      AND "PER_ALL_ASSIGNMENTS_M"."JOB_ID" = "PER_JOBS_F_VL"."JOB_ID" (+) 
+      AND "PER_ALL_ASSIGNMENTS_M"."GRADE_ID" = "PER_GRADES_F_VL"."GRADE_ID" (+) 
+      AND "PER_PERSON_NAMES_F_V"."PERSON_ID" = "PER_PERSON_ADDRESSES_V"."PERSON_ID" (+) 
+      AND trunc(SYSDATE) BETWEEN "PER_PERSON_ADDRESSES_V"."EFFECTIVE_START_DATE" 
+      AND nvl(
+        "PER_PERSON_ADDRESSES_V"."EFFECTIVE_END_DATE", 
+        SYSDATE + 1
+      ) 
+      AND "PER_ALL_ASSIGNMENTS_M"."ASSIGNMENT_STATUS_TYPE_ID" = "PER_ASSIGNMENT_STATUS_TYPES_VL"."ASSIGNMENT_STATUS_TYPE_ID" 
+      AND "PER_ALL_ASSIGNMENTS_M"."PERSON_TYPE_ID" = "PER_PERSON_TYPES_VL"."PERSON_TYPE_ID" 
+      AND "PER_ALL_ASSIGNMENTS_M"."ORGANIZATION_ID" = "HR_ORGANIZATION_UNITS"."ORGANIZATION_ID" (+) 
+      AND "PER_ALL_ASSIGNMENTS_M"."LEGAL_ENTITY_ID" = "HR_ORGANIZATION_UNITS_2"."ORGANIZATION_ID" 
+      AND "PER_ALL_ASSIGNMENTS_M"."BUSINESS_UNIT_ID" = "HR_ORGANIZATION_UNITS_1"."ORGANIZATION_ID" (+) 
+      AND trunc(SYSDATE) BETWEEN "PER_ALL_ASSIGNMENTS_M"."EFFECTIVE_START_DATE" 
+      AND "PER_ALL_ASSIGNMENTS_M"."EFFECTIVE_END_DATE" 
+      AND "PER_ALL_ASSIGNMENTS_M"."EFFECTIVE_END_DATE" BETWEEN "HR_ORGANIZATION_UNITS"."DATE_FROM" (+) 
+      AND "HR_ORGANIZATION_UNITS"."DATE_TO" (+) 
+      AND "PER_ALL_ASSIGNMENTS_M"."EFFECTIVE_END_DATE" BETWEEN "HR_ORGANIZATION_UNITS_1"."DATE_FROM" (+) 
+      AND "HR_ORGANIZATION_UNITS_1"."DATE_TO" (+) 
+      AND "PER_ALL_ASSIGNMENTS_M"."EFFECTIVE_END_DATE" BETWEEN "HR_ORGANIZATION_UNITS_2"."DATE_FROM" 
+      AND "HR_ORGANIZATION_UNITS_2"."DATE_TO" 
+      AND "PER_ALL_ASSIGNMENTS_M"."EFFECTIVE_END_DATE" BETWEEN "HR_ALL_POSITIONS_F_VL"."EFFECTIVE_START_DATE" (+) 
+      AND "HR_ALL_POSITIONS_F_VL"."EFFECTIVE_END_DATE" (+) 
+      AND "PER_ALL_ASSIGNMENTS_M"."EFFECTIVE_END_DATE" BETWEEN "PER_JOBS_F_VL"."EFFECTIVE_START_DATE" (+) 
+      AND "PER_JOBS_F_VL"."EFFECTIVE_END_DATE" (+) 
+      AND "PER_ALL_ASSIGNMENTS_M"."EFFECTIVE_END_DATE" BETWEEN "PER_GRADES_F_VL"."EFFECTIVE_START_DATE" (+) 
+      AND "PER_GRADES_F_VL"."EFFECTIVE_END_DATE" (+) --and "PER_PERSON_NAMES_F_V"."PERSON_ID" --in('300000062940645','300000063542903','300000072973100')
+      AND "PER_ALL_ASSIGNMENTS_M".assignment_number = (
+        SELECT 
+          MAX(assignment_number) 
+        FROM 
+          per_all_assignments_m pam 
+        WHERE 
+          1 = 1 
+          AND pam.person_id = "PER_ALL_ASSIGNMENTS_M"."PERSON_ID" 
+          AND pam."ASSIGNMENT_TYPE" IN ('E', 'C') 
+          AND trunc(SYSDATE) BETWEEN pam.effective_start_date 
+          AND pam.effective_end_date
+      ) 
+    ORDER BY 
+      TO_CHAR(
+        "PER_PERSON_NAMES_F_V"."PERSON_ID"
+      )
+  ) A, 
+  HRG_GOALS HG 
+where 
+  1 = 1 
+  and hg.GOAL_VERSION_TYPE_CODE = 'ACTIVE' 
+  AND hg.status_code NOT IN ('COMPLETED') 
+  AND hg.person_id = A.person_id 
+  AND HG.assignment_id = A.assignment_id --  and PERSON_NUMBER = 100201
+  and a.person_number = nvl(: person_number, a.person_number)
